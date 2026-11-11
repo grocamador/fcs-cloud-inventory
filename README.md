@@ -28,9 +28,11 @@ Outputs: HTML report, plain-text report, and CSV files. All three come from the 
 
 ## Configure credentials
 
-Credentials are read from environment variables. Nothing is written in the code.
+The script reads three environment variables. Nothing is written in the code. Use either option below.
 
-Create a `.env` file in the project folder. Replace the placeholders with your values:
+**Option A: `.env` file (recommended)**
+
+Create a `.env` file in the project folder with your values:
 
 ```
 FALCON_CLIENT_ID=your-client-id
@@ -38,20 +40,38 @@ FALCON_CLIENT_SECRET=your-client-secret
 FALCON_BASE_URL=https://api.crowdstrike.com
 ```
 
-Restrict the file so only your user can read it:
+Restrict it to your user, then load it before each run:
 
 ```
 chmod 600 .env
+set -a; source .env; set +a
 ```
 
-`.env` is listed in `.gitignore`. Do not remove that entry, and never commit `.env`.
+`.env` is listed in `.gitignore`. Never commit it.
+
+**Option B: export in the shell**
+
+```
+export FALCON_CLIENT_ID=your-client-id
+export FALCON_CLIENT_SECRET=your-client-secret
+export FALCON_BASE_URL=https://api.crowdstrike.com
+```
+
+Typed this way, the secret is saved in your shell history. To avoid that, prompt for it instead (zsh syntax; in bash use `read -rs -p "Client secret: " FALCON_CLIENT_SECRET` and then `export FALCON_CLIENT_SECRET`):
+
+```
+read -s "FALCON_CLIENT_SECRET?Client secret: "; export FALCON_CLIENT_SECRET
+export FALCON_CLIENT_ID=your-client-id
+export FALCON_BASE_URL=https://api.crowdstrike.com
+```
+
+Exports last only for the current terminal session. Do not add them to `~/.zshrc` or `~/.bashrc`, because that stores the secret in plain text in a file that other tools can read.
 
 ## Run the script
 
-Load the variables into your shell for the current session, then run the script:
+With either option set, run:
 
 ```
-set -a; source .env; set +a
 python3 sensor_coverage.py
 ```
 
