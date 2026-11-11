@@ -46,6 +46,7 @@ CLOUD_STATE = {"AWS": "running", "Azure": "running", "GCP": "RUNNING"}
 CLOUD_CHOICES = {"aws": "AWS", "azure": "Azure", "gcp": "GCP"}
 K8S_TAG_KEY = {"AWS": r"eks", "Azure": r"aks", "GCP": r"goog-(gke|k8s)"}
 K8S_LABEL = "Kubernetes nodes (EKS / AKS / GKE)"
+K8S_LABELS = {"AWS": "EKS nodes", "Azure": "AKS nodes", "GCP": "GKE nodes"}
 STANDALONE_LABEL = "Standalone VMs (not Kubernetes)"
 SENSOR_STATES = {"Sensor", "Snapshot", "Unmanaged"}
 FIELDS = ["total", "with_sensor", "without_sensor", "snapshot", "unmanaged"]
@@ -129,15 +130,14 @@ def query_ids(api, cloud, rtype, scope):
     fql = f"resource_type:'{rtype}'"
     if scope == "running":
         fql += f"+instance_state:'{CLOUD_STATE[cloud]}'"
-    ids, after = [], None
+    ids, offset = [], 0
     while True:
-        query = {"filter": fql, "limit": 1000}
-        if after:
-            query["after"] = after
-        page = api.get(QUERY_PATH, query)
-        ids += page["resources"]
-        after = page.get("meta", {}).get("pagination", {}).get("after")
-        if not after or not page["resources"]:
+        page = api.get(QUERY_PATH, {"filter": fql, "limit": 1000, "offset": offset})
+        resources = page["resources"]
+        ids += resources
+        offset += len(resources)
+        total = page.get("meta", {}).get("pagination", {}).get("total", 0)
+        if not resources or offset >= total:
             break
     return ids
 
@@ -245,8 +245,8 @@ def summarize(rows, clouds, top_label):
     for cloud in clouds:
         cr = [r for r in rows if r["cloud"] == cloud]
         table.append(tally(cloud, cloud, 0, cr))
-        table.append(tally(K8S_LABEL, cloud, 1, [r for r in cr if r["k8s"]]))
         table.append(tally(STANDALONE_LABEL, cloud, 1, [r for r in cr if not r["k8s"]]))
+        table.append(tally(K8S_LABELS[cloud], cloud, 1, [r for r in cr if r["k8s"]]))
     split = [
         tally(STANDALONE_LABEL, "All", 1, [r for r in rows if not r["k8s"]]),
         tally(K8S_LABEL, "All", 1, [r for r in rows if r["k8s"]]),
